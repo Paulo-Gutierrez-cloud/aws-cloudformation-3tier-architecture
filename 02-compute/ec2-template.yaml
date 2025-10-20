@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Instancia EC2 con Apache Web Server'
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Key pair para acceso SSH
+  
+  VPCStackName:
+    Type: String
+    Default: Lab-VPC
+    Description: Nombre del stack de VPC
+
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+    Description: AMI ID de Amazon Linux 2
+
+Resources:
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group para web server
+      VpcId:
+        Fn::ImportValue: !Sub '${VPCStackName}-VPC-ID'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: WebServer-SG
+
+  WebServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: !Ref LatestAmiId
+      KeyName: !Ref KeyName
+      IamInstanceProfile: LabInstanceProfile
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          GroupSet:
+            - !Ref WebServerSecurityGroup
+          SubnetId:
+            Fn::ImportValue: !Sub '${VPCStackName}-Public-Subnet-1'
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<h1>Servidor Web en CloudFormation</h1>" > /var/www/html/index.html
+          echo "<p>Hostname: $(hostname)</p>" >> /var/www/html/index.html
+          echo "<p>IP Privada: $(hostname -I)</p>" >> /var/www/html/index.html
+      Tags:
+        - Key: Name
+          Value: WebServer-CF
+
+Outputs:
+  WebServerPublicIP:
+    Description: IP publica del servidor web
+    Value: !GetAtt WebServerInstance.PublicIp
+  
+  WebServerURL:
+    Description: URL del servidor web
+    Value: !Sub 'http://${WebServerInstance.PublicIp}'
+  
+  InstanceId:
+    Description: ID de la instancia
+    Value: !Ref WebServerInstance

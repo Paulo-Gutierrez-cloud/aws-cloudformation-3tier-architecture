@@ -1,0 +1,15 @@
+# Archivos sensibles
+*.pem
+*.ppk
+*.key
+.env
+secrets/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+*.swp
+
+# Carpetas temporales
+temp/
+tmp/

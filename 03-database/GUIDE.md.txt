@@ -1,0 +1,119 @@
+🔌 Guía Completa: Conectar EC2 a RDS MySQL
+Prerequisitos
+Antes de comenzar, asegúrate de tener:
+
+✅ Stack VPC desplegado
+✅ Stack EC2 desplegado y funcionando
+✅ Stack RDS desplegado (estado: CREATE_COMPLETE)
+✅ DBEndpoint copiado desde CloudFormation Outputs
+✅ Password de RDS guardado
+
+
+📋 Paso 1: Obtener el DB Endpoint
+
+Ve a CloudFormation Console
+Selecciona tu stack Lab-RDS
+Click en la pestaña Outputs
+Copia el valor de DBEndpoint
+
+Ejemplo: lab-mysql-db.abc123xyz.us-east-1.rds.amazonaws.com
+
+
+
+
+🔐 Paso 2: Conectarse a tu Instancia EC2
+Opción A: Usando SSH (desde tu computadora)
+Para Windows (con PuTTY):
+bash# Configurar PuTTY con tu archivo .ppk
+# Host Name: (IP pública de tu instancia EC2)
+# Connection → SSH → Auth → Browse → Seleccionar .ppk
+Para macOS/Linux:
+bash# Desde tu terminal local
+chmod 400 lab-key.pem
+ssh -i lab-key.pem ec2-user@<IP-PUBLICA-EC2>
+Opción B: Usando Session Manager (sin SSH)
+
+Ve a EC2 Console → Instances
+Selecciona tu instancia
+Click en Connect → Session Manager
+Click Connect
+
+
+🛠️ Paso 3: Instalar Cliente MySQL en EC2
+Una vez conectado a EC2, ejecuta:
+bash# Actualizar sistema
+sudo yum update -y
+
+# Instalar cliente MySQL
+sudo yum install mysql -y
+
+# Verificar instalación
+mysql --version
+Salida esperada:
+mysql  Ver 15.1 Distrib 10.5.x-MariaDB, for Linux (x86_64)
+
+🔗 Paso 4: Conectarse a RDS desde EC2
+Método 1: Conexión Básica
+bash# Reemplaza con tus valores reales
+mysql -h lab-mysql-db.abc123xyz.us-east-1.rds.amazonaws.com \
+      -P 3306 \
+      -u admin \
+      -p
+Cuando pida password: ingresa el password que configuraste al crear el stack RDS
+Método 2: Usando Variables (más ordenado)
+bash# Definir variables
+export DB_HOST="lab-mysql-db.abc123xyz.us-east-1.rds.amazonaws.com"
+export DB_USER="admin"
+export DB_NAME="labdatabase"
+
+# Conectar
+mysql -h $DB_HOST -u $DB_USER -p $DB_NAME
+
+✅ Paso 5: Verificar Conexión Exitosa
+Si la conexión es exitosa, verás:
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MySQL connection id is 10
+Server version: 8.0.35 Source distribution
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MySQL [(none)]>
+
+🧪 Paso 6: Probar la Base de Datos
+Ver bases de datos disponibles
+sqlSHOW DATABASES;
+Salida esperada:
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| labdatabase        |
+| mysql              |
+| performance_schema |
++--------------------+
+Usar la base de datos
+sqlUSE labdatabase;
+Crear una tabla de prueba
+sqlCREATE TABLE usuarios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(100),
+    email VARCHAR(100),
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+Insertar datos
+sqlINSERT INTO usuarios (nombre, email) VALUES 
+('Juan Pérez', 'juan@example.com'),
+('María García', 'maria@example.com'),
+('Carlos López', 'carlos@example.com');
+Consultar datos
+sqlSELECT * FROM usuarios;
+Salida esperada:
++----+--------------+---------------------+---------------------+
+| id | nombre       | email               | fecha_creacion      |
++----+--------------+---------------------+---------------------+
+|  1 | Juan Pérez   | juan@example.com    | 2024-10-20 10:30:00 |
+|  2 | María García | maria@example.com   | 2024-10-20 10:30:01 |
+|  3 | Carlos López | carlos@example.com  | 2024-10-20 10:30:02 |
++----+--------------+---------------------+---------------------+
+Salir de MySQL
+sqlEXIT;

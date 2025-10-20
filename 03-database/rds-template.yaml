@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'RDS MySQL Database para aplicacion'
+
+Parameters:
+  VPCStackName:
+    Type: String
+    Default: Lab-VPC
+    Description: Nombre del stack de VPC
+  
+  DBUsername:
+    Type: String
+    Default: admin
+    Description: Usuario maestro de la base de datos
+    MinLength: 1
+    MaxLength: 16
+    AllowedPattern: '[a-zA-Z][a-zA-Z0-9]*'
+  
+  DBPassword:
+    Type: String
+    NoEcho: true
+    Description: Password de la base de datos (min 8 caracteres)
+    MinLength: 8
+    MaxLength: 41
+    AllowedPattern: '[a-zA-Z0-9]*'
+
+Resources:
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group para RDS
+      SubnetIds:
+        - Fn::ImportValue: !Sub '${VPCStackName}-Private-Subnet-1'
+        - Fn::ImportValue: !Sub '${VPCStackName}-Private-Subnet-2'
+      Tags:
+        - Key: Name
+          Value: DB-Subnet-Group
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group para RDS MySQL
+      VpcId:
+        Fn::ImportValue: !Sub '${VPCStackName}-VPC-ID'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 10.0.0.0/16
+      Tags:
+        - Key: Name
+          Value: RDS-SG
+
+  MySQLDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: lab-mysql-db
+      DBName: labdatabase
+      Engine: mysql
+      EngineVersion: '8.0'
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      StorageType: gp2
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword: !Ref DBPassword
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: '03:00-04:00'
+      PreferredMaintenanceWindow: 'mon:04:00-mon:05:00'
+      PubliclyAccessible: false
+      Tags:
+        - Key: Name
+          Value: Lab-MySQL-DB
+
+Outputs:
+  DBEndpoint:
+    Description: Endpoint de la base de datos
+    Value: !GetAtt MySQLDatabase.Endpoint.Address
+  
+  DBPort:
+    Description: Puerto de la base de datos
+    Value: !GetAtt MySQLDatabase.Endpoint.Port
+  
+  DBName:
+    Description: Nombre de la base de datos
+    Value: labdatabase
